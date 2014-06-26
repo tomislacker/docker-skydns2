@@ -1,3 +1,18 @@
 #!/bin/bash
 
-/usr/bin/skydns2
+TTL=3600
+DNS_ADDR=${DNS_ADDR:-"0.0.0.0:53"}
+SKYDNS_TLD=${SKYDNS_TLD:-"skydns.local"}
+HOSTMASTER_EMAIL=${HOSTMASTER_EMAIL:-"root@${SKYDNS_TLD}"}
+
+firstServer=$(echo ${ETCD_MACHINES} | cut -d, -f1)
+curl -XPUT http://${firstServer}/v2/keys/skydns/config \
+    -d value="{
+        \"dns_addr\":\"${DNS_ADDR}\",
+        \"ttl\":${TTL},
+        \"nameservers\": [\"8.8.8.8:53\",\"8.8.4.4:53\"],
+        \"domain\":\"${SKYDNS_TLD}\"
+    }"
+
+/usr/bin/skydns2 \
+    -machines=${ETCD_MACHINES}
