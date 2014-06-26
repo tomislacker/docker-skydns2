@@ -1,15 +1,23 @@
 #!/bin/bash
 
-TTL=3600
+###
+# For further information for what these values are by default or some of the
+# other values that can be set, please refer to the skydns project at:
+# https://github.com/skynetservices/skydns#configuration
+###
+
 DNS_ADDR=${DNS_ADDR:-"0.0.0.0:53"}
 SKYDNS_TLD=${SKYDNS_TLD:-"skydns.local"}
 HOSTMASTER_EMAIL=${HOSTMASTER_EMAIL:-"root@${SKYDNS_TLD}"}
+MIN_TTL=${MIN_TTL:-"30"}
+TTL=${TTL:-"3600"}
 
 firstServer=$(echo ${ETCD_MACHINES} | cut -d, -f1)
 curl -XPUT http://${firstServer}/v2/keys/skydns/config \
     -d value="{
         \"dns_addr\":\"${DNS_ADDR}\",
         \"ttl\":${TTL},
+        \"min_ttl\":${MIN_TTL},
         \"nameservers\": [\"8.8.8.8:53\",\"8.8.4.4:53\"],
         \"domain\":\"${SKYDNS_TLD}\"
     }"
