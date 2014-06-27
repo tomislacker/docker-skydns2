@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# This delay, if present, helps to ensure that the local instance of etcd
+# is up and responding prior to the curl request to pre-configure it for
+# skydns is executed
+CURL_DELAY=3
+
 ###
 # For further information for what these values are by default or some of the
 # other values that can be set, please refer to the skydns project at:
@@ -12,15 +17,32 @@ HOSTMASTER_EMAIL=${HOSTMASTER_EMAIL:-"root@${SKYDNS_TLD}"}
 MIN_TTL=${MIN_TTL:-"30"}
 TTL=${TTL:-"3600"}
 
+# Determine the first etcd server we can hit to configure it for skydns
 firstServer=$(echo ${ETCD_MACHINES} | cut -d, -f1)
-curl -XPUT http://${firstServer}/v2/keys/skydns/config \
-    -d value="{
+
+###
+# Determine what config data we're going to send up to etcd
+###
+configData="{
         \"dns_addr\":\"${DNS_ADDR}\",
         \"ttl\":${TTL},
         \"min_ttl\":${MIN_TTL},
         \"nameservers\": [\"8.8.8.8:53\",\"8.8.4.4:53\"],
         \"domain\":\"${SKYDNS_TLD}\"
     }"
+
+if [ -n "$CURL_DELAY" ]; then
+    echo "Delaying etcd curl request for ${CURL_DELAY}s ..."
+    echo -e "\tHost: ${firstServer}"
+    echo -e "\tData: ${configData}"
+    sleep $CURL_DELAY
+fi
+
+###
+# Actually call cURL to configure etcd before skydns starts
+###    
+curl -sXPUT ${firstServer}/v2/keys/skydns/config \
+    -d value="${configData}"
 
 /usr/bin/skydns2 \
     -machines=${ETCD_MACHINES}
