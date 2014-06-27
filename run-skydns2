@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# This delay, if present, helps to ensure that the local instance of etcd
-# is up and responding prior to the curl request to pre-configure it for
-# skydns is executed
-CURL_DELAY=3
+# Specify how long to wait between retries if etcd is not up prior to
+# us attempting to start skydns
+RETRY_DELAY=0.5
 
 ###
 # For further information for what these values are by default or some of the
@@ -31,18 +30,16 @@ configData="{
         \"domain\":\"${SKYDNS_TLD}\"
     }"
 
-if [ -n "$CURL_DELAY" ]; then
-    echo "Delaying etcd curl request for ${CURL_DELAY}s ..."
-    echo -e "\tHost: ${firstServer}"
-    echo -e "\tData: ${configData}"
-    sleep $CURL_DELAY
-fi
-
-###
-# Actually call cURL to configure etcd before skydns starts
-###    
-curl -sXPUT ${firstServer}/v2/keys/skydns/config \
-    -d value="${configData}"
+# Loop and attempt to curl our config information to the etcd
+# server indefinately until we get a successful exitval
+lastExitVal=-1
+while [ true ]; do
+    curl -sXPUT ${firstServer}/v2/keys/skydns/config \
+        -d value="${configData}"
+    lastExitVal=$?
+    [[ $lastExitVal -eq 0 ]] && break
+    sleep $RETRY_DELAY
+done
 
 /usr/bin/skydns2 \
     -machines=${ETCD_MACHINES}
